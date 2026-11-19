@@ -118,6 +118,10 @@ void CFeatureManager::precache_features()
 	add_new_feature(BaseFeature(CMovementBot::toggle.get_toggle_var(), "Movement Bot"));
 	add_new_feature(BaseFeature(&movement_plot, "Movement visualization"));
 
+	// grenade helper
+	add_new_feature(BaseFeature(&nade_preview, "Grenade trajectory"));
+	add_new_feature(BaseFeature(&nade_silent, "Silent grenade replay"));
+
 	// debug
 	add_new_feature(BaseFeature(&debug, "Debug"));
 

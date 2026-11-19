@@ -419,6 +419,9 @@ void CL_CreateMove_FnDetour_t::CL_CreateMove(float frametime, hl::usercmd_t *cmd
 			CAutomation::the().update();
 
 			CMovement::the().update_clientmove(frametime, cmd);
+
+			// last one wins: a saved throw must override viewangles/buttons.
+			CGrenadeHelper::the().update_clientmove(frametime, cmd);
 		}
 
 #if 0 // force weather
@@ -575,6 +578,9 @@ void V_CalcRefdef_FnDetour_t::V_CalcRefdef(hl::ref_params_t *pparams)
 	if (!CAntiScreen::the().hide_visuals() && !CPanic::the().panicking())
 	{
 		CThirdPerson::the().update(pparams);
+
+		// restore the real camera during a silent nade replay (after thirdperson)
+		CGrenadeHelper::the().on_calc_refdef(pparams);
 
 		// no-recoil
 		//pparams->viewangles = pparams->cl_viewangles + pparams->punchangle;

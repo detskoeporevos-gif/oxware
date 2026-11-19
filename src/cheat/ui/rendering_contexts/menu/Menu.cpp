@@ -136,6 +136,16 @@ void CUIMenu::on_initialize()
 		}
 
 		{
+			auto& tab_grenades = group_misc.m_tabs[MENU_TAB_Grenades];
+			tab_grenades.initialize("Grenades", "Grenade throws and autonomous movement bot");
+			{
+				auto& tab_grenades_main = tab_grenades.m_sections["main"];
+				tab_grenades_main.m_children.push_back(new MenuChilden::Grenades::GrenadeHelper({ "💣 Grenade helper", 430, true }));
+				tab_grenades_main.m_children.push_back(new MenuChilden::Grenades::MovementBot({ "🤖 Movement bot", 265, true }));
+			}
+		}
+
+		{
 			auto& tab_plrlist = group_misc.m_tabs[MENU_TAB_PlayerList];
 			tab_plrlist.initialize("Player list", "List of all players");
 			{

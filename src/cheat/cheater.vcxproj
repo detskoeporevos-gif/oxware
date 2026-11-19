@@ -213,6 +213,7 @@
     <ClCompile Include="features\AspectRatioChanger.cpp" />
     <ClCompile Include="features\Automation.cpp" />
     <ClCompile Include="features\BackTrack.cpp" />
+    <ClCompile Include="features\GrenadeHelper.cpp" />
     <ClCompile Include="features\EnvironmentalEffects.cpp" />
     <ClCompile Include="features\IngameScreenRendering.cpp" />
     <ClCompile Include="features\movement\AirStuck.cpp" />
@@ -301,6 +302,7 @@
     <ClCompile Include="ui\rendering_contexts\menu\Menu_Configuration.cpp" />
     <ClCompile Include="ui\rendering_contexts\menu\Menu_Exploits.cpp" />
     <ClCompile Include="ui\rendering_contexts\menu\Menu_Movement.cpp" />
+    <ClCompile Include="ui\rendering_contexts\menu\Menu_Grenades.cpp" />
     <ClCompile Include="ui\rendering_contexts\menu\Menu_Other.cpp" />
     <ClCompile Include="ui\rendering_contexts\menu\Menu_PlayerList.cpp" />
     <ClCompile Include="ui\rendering_contexts\menu\Menu_Rendering.cpp" />
@@ -341,6 +343,7 @@
     <ClInclude Include="features\AspectRatioChanger.h" />
     <ClInclude Include="features\Automation.h" />
     <ClInclude Include="features\BackTrack.h" />
+    <ClInclude Include="features\GrenadeHelper.h" />
     <ClInclude Include="features\EnvironmentalEffects.h" />
     <ClInclude Include="features\IngameScreenRendering.h" />
     <ClInclude Include="features\movement\AirStuck.h" />

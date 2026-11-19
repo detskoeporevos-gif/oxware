@@ -147,6 +147,7 @@ enum EMenuTabId
 	// Miscellaneous
 	MENU_TAB_Exploits,
 	MENU_TAB_Movement,
+	MENU_TAB_Grenades,
 	MENU_TAB_PlayerList,
 
 	// Config
@@ -449,6 +450,12 @@ struct MenuChilden
 		DECL_CHILD(FakeLatency);
 		DECL_CHILD(CvarSandbox);
 		DECL_CHILD(SIDSpoofer);
+	};
+
+	struct Grenades
+	{
+		DECL_CHILD(GrenadeHelper);
+		DECL_CHILD(MovementBot);
 	};
 
 	struct PlayerList

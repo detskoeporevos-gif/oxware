@@ -56,10 +56,32 @@ jobs:
             )
           )
 
-      - name: Upload build output
+      - name: Pack runtime files only
+        shell: cmd
+        run: |
+          @echo off
+          if exist deploy rmdir /s /q deploy
+          mkdir deploy
+          for %%F in (oxware.exe cheater.dll oxui.dll util.dll) do (
+            if not exist build\%%F (
+              echo ::error::Missing build\%%F
+              exit /b 1
+            )
+            copy build\%%F deploy\ >nul
+          )
+          for %%F in (msvcp140.dll vcruntime140.dll) do (
+            if not exist dependencies\runtime\%%F (
+              echo ::error::Missing dependencies\runtime\%%F
+              exit /b 1
+            )
+            copy dependencies\runtime\%%F deploy\ >nul
+          )
+          copy docs\movement_bot.md deploy\README.txt >nul
+          dir deploy
+
+      - name: Upload runtime package
         uses: actions/upload-artifact@v4
         with:
           name: oxware-release-x86
-          path: |
-            build/**
-          if-no-files-found: warn
+          path: deploy/**
+          if-no-files-found: error

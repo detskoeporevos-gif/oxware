@@ -33,8 +33,8 @@ void MenuChilden::Grenades::GrenadeHelper::contents()
 	CUIMenuWidgets::the().add_checkbox("Silent replay", &nade_silent);
 	CUIMenuWidgets::the().add_slider("Throw speed", "%0.0f", &nade_throw_speed);
 	CUIMenuWidgets::the().add_slider("Gravity scale", "%0.2f", &nade_gravity_scale);
-	CUIMenuWidgets::the().add_slider("Bounce", "%0.2f", &nade_bounce);
-	CUIMenuWidgets::the().add_slider("Friction", "%0.2f", &nade_friction);
+	CUIMenuWidgets::the().add_slider("Bounce mult", "%0.2f", &nade_bounce);
+	CUIMenuWidgets::the().add_slider("Friction mult", "%0.2f", &nade_friction);
 	CUIMenuWidgets::the().add_slider("Preview time", "%0.1f s", &nade_preview_time);
 	CUIMenuWidgets::the().add_slider("Spot tolerance", "%0.0f u", &nade_throw_tolerance);
 

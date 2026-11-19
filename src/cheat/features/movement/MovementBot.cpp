@@ -38,9 +38,10 @@
 #include "precompiled.h"
 
 VarFloat movement_bot_reach_dist("movement_bot_reach_dist", "Distance at which a waypoint is considered reached", 48.0f, 16.0f, 160.0f);
-VarFloat movement_bot_roam_distance("movement_bot_roam_distance", "How far the bot picks its free-roam target", 320.0f, 64.0f, 1024.0f);
+VarFloat movement_bot_roam_distance("movement_bot_roam_distance", "How far the bot picks its free-roam target", 768.0f, 64.0f, 4096.0f);
 VarBoolean movement_bot_use_bhop("movement_bot_use_bhop", "Jump automatically on the first grounded frame", true);
 VarBoolean movement_bot_use_strafe("movement_bot_use_strafe", "Air-strafe toward the target instead of just holding forward", true);
+VarBoolean movement_bot_tricks("movement_bot_tricks", "Also run Auto-JOF and EdgeBug tricks while roaming", true);
 VarInteger movement_bot_max_speed("movement_bot_max_speed", "Wish speed used by the bot (0 = use pmove->maxspeed)", 0, 0, 2000);
 VarBoolean movement_bot_debug("movement_bot_debug", "Log waypoint recording / route changes", false);
 
@@ -106,8 +107,8 @@ void CMovementBot::pick_roam_target(const Vector &origin)
 	auto enginefuncs = CMemoryHookMgr::the().cl_enginefuncs();
 	float view_yaw = CMath::the().deg2rad(CMemoryHookMgr::the().cl().get()->viewangles[YAW]);
 
-	// pick a point within +-90 degrees of the current view
-	float offset = CMath::the().deg2rad((float)enginefuncs->pfnRandomLong(-90, 90));
+	// pick a point anywhere around the player so free roam eventually covers the map
+	float offset = CMath::the().deg2rad((float)enginefuncs->pfnRandomLong(-180, 180));
 	float yaw = bot_wrap_pi(view_yaw + offset);
 	float dist = movement_bot_roam_distance.get_value();
 
@@ -290,5 +291,14 @@ bool CMovementBot::update(float frametime, hl::usercmd_t *cmd)
 	}
 
 	drive_to(origin, target, cmd);
+
+	// Optional movement tricks from the existing feature set. CMovement skips its
+	// own handlers while the bot owns the command, so invoke them explicitly.
+	if (movement_bot_tricks.get_value())
+	{
+		CMovementAutoJOF::the().update(frametime);
+		CMovementEdgeBug::the().update(frametime);
+	}
+
 	return true;
 }

@@ -48,6 +48,7 @@ extern VarFloat movement_bot_reach_dist;
 extern VarFloat movement_bot_roam_distance;
 extern VarBoolean movement_bot_use_bhop;
 extern VarBoolean movement_bot_use_strafe;
+extern VarBoolean movement_bot_tricks;
 extern VarInteger movement_bot_max_speed;
 extern VarBoolean movement_bot_debug;
 

@@ -13,8 +13,8 @@ It only writes networked input (`viewangles`, `forwardmove`, `sidemove`,
 
 Two modes:
 
-1. **Free roam** (no waypoints) — the bot generates a point 64–1024 units in
-   front of itself, re-picks it when reached, when stuck for 1.5 s, or after
+1. **Free roam** (no waypoints) — the bot generates a point 64–4096 units away in any
+   direction, re-picks it when reached, when stuck for 1.5 s, or after
    12 s.
 2. **Waypoint route** — record points manually; the bot loops through them.
 
@@ -33,8 +33,9 @@ The project is MSVC/Windows-only (`v143`, C++20). Build it in Visual Studio
 
 There is also a GitHub Actions workflow: `.github/workflows/build.yml`. It
 builds all static libraries in dependency order, then `cheater.vcxproj`, and
-uploads `build/**` as the `oxware-release-x86` artifact. Trigger it with a push
-to `arena/**` or via `workflow_dispatch`.
+packs only the runtime files into `deploy/` and uploads that as the small
+  `oxware-release-x86` artifact. Trigger it with a push to `arena/**` or via
+  `workflow_dispatch`.
 
 The Linux sandbox used for this patch has no MSVC/`windows.h`, so the build
 was executed on a `windows-2022` GitHub runner instead. That CI run completed
@@ -93,9 +94,10 @@ movement_bot_debug 1
 
 ```cfg
 movement_bot_reach_dist 48      // waypoint considered reached within N units
-movement_bot_roam_distance 320  // free-roam target distance
+movement_bot_roam_distance 768  // free-roam target distance (full circle)
 movement_bot_use_bhop 1         // auto-jump on grounded frame
 movement_bot_use_strafe 1       // air-strafe toward target
+movement_bot_tricks 1           // also run Auto-JOF / EdgeBug tricks
 movement_bot_max_speed 0        // 0 = use pmove->maxspeed; e.g. 250 to cap
 movement_bot_debug 0
 ```

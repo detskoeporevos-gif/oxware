@@ -88,7 +88,7 @@ void CMovementBot::handle_route_input()
 	{
 		m_route.clear();
 		m_route_index = 0;
-		m_roam_target = vec3_origin;
+		m_roam_target = Vector(0.0f, 0.0f, 0.0f);
 		m_roam_timer = 0.0f;
 
 		if (movement_bot_debug.get_value())

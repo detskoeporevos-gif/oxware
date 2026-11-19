@@ -33,6 +33,7 @@ jobs:
         shell: cmd
         run: |
           @echo off
+          set "SOL=%CD%\"
           for %%P in (
             src\tier\tier.vcxproj
             src\external\detours\detours.vcxproj
@@ -48,7 +49,7 @@ jobs:
             src\cheat\cheater.vcxproj
           ) do (
             echo === Building %%P ===
-            call msbuild %%P /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal > build_log.txt 2>&1
+            call msbuild %%P /p:SolutionDir="%SOL%" /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal > build_log.txt 2>&1
             if errorlevel 1 (
               type build_log.txt
               for /f "delims=" %%L in ('findstr /i /c:"error " /c:"LNK" /c:"MSB" build_log.txt') do echo ::error::%%L

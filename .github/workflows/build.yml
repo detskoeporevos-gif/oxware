@@ -1,0 +1,75 @@
+name: Build oxware (MSVC x86)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'arena/**'
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+        with:
+          vs-version: '[17.0,18.0)'
+          msbuild-architecture: x86
+
+      - name: Prepare shared lib directory
+        shell: cmd
+        run: |
+          if not exist src\lib mkdir src\lib
+
+      # The solution has no explicit project dependencies and the cheat project
+      # is listed first, so build the static libraries in order manually.
+      - name: Build dependencies and cheat
+        shell: cmd
+        run: |
+          call msbuild src\tier\tier.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
+          if errorlevel 1 exit /b 1
+
+          call msbuild src\external\detours\detours.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
+          if errorlevel 1 exit /b 1
+
+          call msbuild src\assets\assets.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
+          if errorlevel 1 exit /b 1
+
+          call msbuild src\gsdecrypt\gsdecrypt.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
+          if errorlevel 1 exit /b 1
+
+          call msbuild src\injector\injector.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
+          if errorlevel 1 exit /b 1
+
+          call msbuild src\multiemulator\multiemulator.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
+          if errorlevel 1 exit /b 1
+
+          call msbuild src\external\soil\soil.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
+          if errorlevel 1 exit /b 1
+
+          call msbuild src\util\util.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
+          if errorlevel 1 exit /b 1
+
+          call msbuild src\external\imgui\imgui.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
+          if errorlevel 1 exit /b 1
+
+          call msbuild src\gui\oxUI.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
+          if errorlevel 1 exit /b 1
+
+          call msbuild src\loader\loader.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
+          if errorlevel 1 exit /b 1
+
+          call msbuild src\cheat\cheater.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:normal
+          if errorlevel 1 exit /b 1
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: oxware-release-x86
+          path: |
+            build/**
+          if-no-files-found: warn

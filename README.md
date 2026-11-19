@@ -170,6 +170,7 @@ In order to fully build everything, all you need to do is just hit **ctrl + shif
 	- Strafe helper
 	- Fast run & fast walk
 	- Auto JOF
+	- Autonomous movement bot (free roam + waypoint routes)
 	- Visual screen information
 - Fancy custom cl_showfps rendering
 - Backtrack, see [this video](https://youtu.be/G-ZjjsUHHlg).

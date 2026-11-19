@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -221,6 +221,7 @@
     <ClCompile Include="features\movement\FastRun.cpp" />
     <ClCompile Include="features\movement\GroundStrafe.cpp" />
     <ClCompile Include="features\movement\EdgeBug.cpp" />
+    <ClCompile Include="features\movement\MovementBot.cpp" />
     <ClCompile Include="features\movement\Movement.cpp" />
     <ClCompile Include="features\movement\MovementVisualInfo.cpp" />
     <ClCompile Include="features\movement\StrafeHack.cpp" />
@@ -348,6 +349,7 @@
     <ClInclude Include="features\movement\FastRun.h" />
     <ClInclude Include="features\movement\GroundStrafe.h" />
     <ClInclude Include="features\movement\EdgeBug.h" />
+    <ClInclude Include="features\movement\MovementBot.h" />
     <ClInclude Include="features\movement\Movement.h" />
     <ClInclude Include="features\movement\MovementVisualInfo.h" />
     <ClInclude Include="features\movement\StrafeHack.h" />

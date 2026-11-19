@@ -27,44 +27,34 @@ jobs:
 
       # The solution has no explicit project dependencies and the cheat project
       # is listed first, so build the static libraries in order manually.
+      # On failure, surface compiler/linker errors as annotations so they can be
+      # read without downloading the raw job log.
       - name: Build dependencies and cheat
         shell: cmd
         run: |
-          call msbuild src\tier\tier.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
-          if errorlevel 1 exit /b 1
-
-          call msbuild src\external\detours\detours.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
-          if errorlevel 1 exit /b 1
-
-          call msbuild src\assets\assets.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
-          if errorlevel 1 exit /b 1
-
-          call msbuild src\gsdecrypt\gsdecrypt.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
-          if errorlevel 1 exit /b 1
-
-          call msbuild src\injector\injector.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
-          if errorlevel 1 exit /b 1
-
-          call msbuild src\multiemulator\multiemulator.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
-          if errorlevel 1 exit /b 1
-
-          call msbuild src\external\soil\soil.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
-          if errorlevel 1 exit /b 1
-
-          call msbuild src\util\util.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
-          if errorlevel 1 exit /b 1
-
-          call msbuild src\external\imgui\imgui.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
-          if errorlevel 1 exit /b 1
-
-          call msbuild src\gui\oxUI.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
-          if errorlevel 1 exit /b 1
-
-          call msbuild src\loader\loader.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal
-          if errorlevel 1 exit /b 1
-
-          call msbuild src\cheat\cheater.vcxproj /p:Configuration=Release /p:Platform=Win32 /m:1 /v:normal
-          if errorlevel 1 exit /b 1
+          @echo off
+          for %%P in (
+            src\tier\tier.vcxproj
+            src\external\detours\detours.vcxproj
+            src\assets\assets.vcxproj
+            src\gsdecrypt\gsdecrypt.vcxproj
+            src\injector\injector.vcxproj
+            src\multiemulator\multiemulator.vcxproj
+            src\external\soil\soil.vcxproj
+            src\util\util.vcxproj
+            src\external\imgui\imgui.vcxproj
+            src\gui\oxUI.vcxproj
+            src\loader\loader.vcxproj
+            src\cheat\cheater.vcxproj
+          ) do (
+            echo === Building %%P ===
+            call msbuild %%P /p:Configuration=Release /p:Platform=Win32 /m:1 /v:minimal > build_log.txt 2>&1
+            if errorlevel 1 (
+              type build_log.txt
+              for /f "delims=" %%L in ('findstr /i /c:"error " /c:"LNK" /c:"MSB" build_log.txt') do echo ::error::%%L
+              exit /b 1
+            )
+          )
 
       - name: Upload build output
         uses: actions/upload-artifact@v4

@@ -63,9 +63,16 @@ struct grenade_throw_t
 	Vector eye;
 	Vector velocity;
 	Vector angles;
+	Vector landing; // where the grenade actually lands (predicted by the same simulation)
 
 	unsigned short buttons = 0;
 	unsigned char msec = 0;
+};
+
+struct grenade_simulation_t
+{
+	std::vector<Vector> points;
+	Vector landing;
 };
 
 class CGrenadeHelper
@@ -97,8 +104,9 @@ private:
 	void save();
 	void load();
 
-	std::vector<Vector> simulate(const Vector& start, const Vector& initial_velocity) const;
-	float engine_gravity() const;
+	grenade_simulation_t simulate(const Vector& eye, const Vector& viewangles,
+								  const Vector& player_velocity, int weapon_id) const;
+	Vector solve_angles_for_landing(const Vector& target, int weapon_id) const;
 
 private:
 	std::string m_current_map;
@@ -113,6 +121,7 @@ private:
 	int m_original_weapon_id = 0;
 
 	Vector m_saved_camera_angles;
+	Vector m_replay_angles;
 	int m_silent_frames = 0;
 };
 

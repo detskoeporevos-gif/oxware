@@ -23,6 +23,7 @@
 #include <filesystem>
 #include <fstream>
 #include <cctype>
+#include <cfloat>
 
 //-----------------------------------------------------------------------------
 
@@ -30,8 +31,8 @@ VarBoolean nade_preview("nade_preview", "Preview the trajectory of the current g
 VarBoolean nade_silent("nade_silent", "Keep the camera still while replaying a saved throw", true);
 VarFloat nade_throw_speed("nade_throw_speed", "Initial grenade speed", 675.0f, 100.0f, 1500.0f);
 VarFloat nade_gravity_scale("nade_gravity_scale", "Gravity multiplier used by the trajectory simulation", 1.0f, 0.1f, 5.0f);
-VarFloat nade_bounce("nade_bounce", "Grenade bounce coefficient", 0.45f, 0.0f, 1.0f);
-VarFloat nade_friction("nade_friction", "Horizontal speed kept after a bounce", 0.70f, 0.0f, 1.0f);
+VarFloat nade_bounce("nade_bounce", "Extra multiplier on the exact bounce response (1 = engine-accurate)", 1.0f, 0.0f, 2.0f);
+VarFloat nade_friction("nade_friction", "Extra multiplier on the engine friction (1 = engine-accurate)", 1.0f, 0.0f, 2.0f);
 VarFloat nade_preview_time("nade_preview_time", "How many seconds of flight to simulate", 3.0f, 0.5f, 8.0f);
 VarFloat nade_throw_tolerance("nade_throw_tolerance", "Max distance from the recorded spot that still allows the throw", 64.0f, 0.0f, 512.0f);
 
@@ -140,6 +141,7 @@ void CGrenadeHelper::save()
 		entry["eye"] = { t.eye.x, t.eye.y, t.eye.z };
 		entry["velocity"] = { t.velocity.x, t.velocity.y, t.velocity.z };
 		entry["angles"] = { t.angles.x, t.angles.y, t.angles.z };
+		entry["landing"] = { t.landing.x, t.landing.y, t.landing.z };
 		entry["buttons"] = t.buttons;
 		entry["msec"] = t.msec;
 		j.push_back(entry);
@@ -216,6 +218,7 @@ void CGrenadeHelper::load()
 		t.eye = read_vec(entry.value("eye", nh::json::array()));
 		t.velocity = read_vec(entry.value("velocity", nh::json::array()));
 		t.angles = read_vec(entry.value("angles", nh::json::array()));
+		t.landing = read_vec(entry.value("landing", nh::json::array()));
 		t.buttons = static_cast<unsigned short>(entry.value("buttons", 0));
 		t.msec = static_cast<unsigned char>(entry.value("msec", 0));
 
@@ -288,6 +291,18 @@ bool CGrenadeHelper::throw_nade(const std::string& name)
 
 	auto cl = CMemoryHookMgr::the().cl().get();
 	m_saved_camera_angles = cl ? cl->viewangles : Vector(0.0f, 0.0f, 0.0f);
+
+	// aim at the recorded landing spot, not at the recorded view direction.
+	// solving once avoids running hundreds of traces inside the replay frames.
+	if (!t.landing.IsZero())
+	{
+		m_replay_angles = solve_angles_for_landing(t.landing, t.weapon_id);
+	}
+	if (m_replay_angles.IsZero())
+	{
+		m_replay_angles = t.angles;
+	}
+
 	m_original_weapon_id = CWeapons::the().get_current_weapon()->m_weapon_id;
 	m_active_throw = name;
 	// two frames: release attack + select the weapon, then throw. This gives
@@ -371,6 +386,11 @@ void CGrenadeHelper::update_clientmove(float frametime, hl::usercmd_t* cmd)
 			t.buttons = cmd->buttons;
 			t.msec = cmd->msec;
 
+			// remember where this throw actually lands, so a later replay can
+			// aim for the same spot instead of blindly reusing the old angles.
+			auto sim = simulate(t.eye, t.angles, t.velocity, t.weapon_id);
+			t.landing = sim.landing;
+
 			m_throws[t.name] = t;
 			save();
 			CConsole::the().info("GrenadeHelper: saved throw '{}' (weapon {}, build {}).",
@@ -386,7 +406,7 @@ void CGrenadeHelper::update_clientmove(float frametime, hl::usercmd_t* cmd)
 		if (it != m_throws.end())
 		{
 			const auto& t = it->second;
-			cmd->viewangles = t.angles;
+			cmd->viewangles = m_replay_angles;
 			cmd->weaponselect = static_cast<byte>(t.weapon_id);
 			if (t.msec != 0)
 			{
@@ -439,57 +459,207 @@ void CGrenadeHelper::on_calc_refdef(hl::ref_params_t* params)
 
 //-----------------------------------------------------------------------------
 
-float CGrenadeHelper::engine_gravity() const
+// Engine-accurate CS 1.6 grenade prediction. Constants and the step order are
+// taken from the well-known HL1 grenade predictor (per-weapon gravity/friction,
+// pitch bias, 16u spawn offset, (90 - pitch) * 6 speed, PM_PlayerTrace hull 2).
+static void grenade_clip_velocity(const Vector& in, const Vector& normal, Vector& out, float overbounce)
 {
-	// the pmove hook holds a playermove_t* pointer, so get() gives us playermove_t**.
-	auto pmove_ptr = CMemoryHookMgr::the().pmove().get();
-	auto pmove = pmove_ptr ? *pmove_ptr : nullptr;
-	float gravity = (pmove && pmove->movevars) ? pmove->movevars->gravity : 800.0f;
-	if (gravity <= 0.0f)
-	{
-		gravity = 800.0f;
-	}
-	return gravity * nade_gravity_scale.get_value();
+	const float backoff = in.Dot(normal) * overbounce;
+	out.x = in.x - normal.x * backoff;
+	out.y = in.y - normal.y * backoff;
+	out.z = in.z - normal.z * backoff;
+
+	constexpr float stop_epsilon = 0.1f;
+	if (out.x > -stop_epsilon && out.x < stop_epsilon) out.x = 0.0f;
+	if (out.y > -stop_epsilon && out.y < stop_epsilon) out.y = 0.0f;
+	if (out.z > -stop_epsilon && out.z < stop_epsilon) out.z = 0.0f;
 }
 
-std::vector<Vector> CGrenadeHelper::simulate(const Vector& start, const Vector& initial_velocity) const
+grenade_simulation_t CGrenadeHelper::simulate(const Vector& eye, const Vector& viewangles,
+											  const Vector& player_velocity, int weapon_id) const
 {
-	const float dt = 1.0f / 60.0f;
-	const int steps = static_cast<int>(nade_preview_time.get_value() / dt);
+	grenade_simulation_t result;
 
-	const auto cl = CMemoryHookMgr::the().cl().get();
-	const float eye_height = cl ? cl->viewheight.z : 48.0f;
-	const float ground_z = start.z - (eye_height > 0.0f ? eye_height : 48.0f);
-	const float gravity = engine_gravity();
-	const float bounce = nade_bounce.get_value();
-	const float friction = nade_friction.get_value();
-
-	std::vector<Vector> points;
-	points.reserve(steps);
-
-	Vector pos = start;
-	Vector vel = initial_velocity;
-
-	for (int i = 0; i < steps; ++i)
+	auto pmove_ptr = CMemoryHookMgr::the().pmove().get();
+	hl::playermove_t* pm = pmove_ptr ? *pmove_ptr : nullptr;
+	auto cl = CMemoryHookMgr::the().cl().get();
+	if (!pm || !pm->PM_PlayerTrace || !cl)
 	{
-		vel.z -= gravity * dt;
-
-		pos.x += vel.x * dt;
-		pos.y += vel.y * dt;
-		pos.z += vel.z * dt;
-
-		if (pos.z <= ground_z)
-		{
-			pos.z = ground_z;
-			vel.z = -vel.z * bounce;
-			vel.x *= friction;
-			vel.y *= friction;
-		}
-
-		points.push_back(pos);
+		result.landing = eye;
+		return result;
 	}
 
-	return points;
+	float ent_gravity = 0.55f, ent_friction = 0.7f;
+	switch (weapon_id)
+	{
+		case WEAPON_FLASHBANG:
+		case WEAPON_SMOKEGRENADE:
+			ent_gravity = 0.5f;
+			ent_friction = 0.8f;
+			break;
+		case WEAPON_HEGRENADE:
+		default:
+			break;
+	}
+	ent_gravity *= nade_gravity_scale.get_value();
+	const float overbounce = (2.0f - ent_friction) * nade_friction.get_value();
+
+	Vector throw_angles = viewangles + cl->punchangle;
+	if (throw_angles.x < 0.0f)
+	{
+		throw_angles.x = -10.0f + throw_angles.x * ((90.0f - 10.0f) / 90.0f);
+	}
+	else
+	{
+		throw_angles.x = -10.0f + throw_angles.x * ((90.0f + 10.0f) / 90.0f);
+	}
+
+	Vector forward;
+	CMath::the().angle_vectors(throw_angles, &forward, nullptr, nullptr);
+
+	Vector origin = eye + forward * 16.0f;
+
+	float velocity_modifier = (90.0f - throw_angles.x) * 6.0f;
+	velocity_modifier *= nade_throw_speed.get_value() / 675.0f;
+	if (velocity_modifier > 750.0f) velocity_modifier = 750.0f;
+	if (velocity_modifier < 0.0f) velocity_modifier = 0.0f;
+
+	Vector velocity = player_velocity + forward * velocity_modifier;
+
+	constexpr float dt = 0.01f;
+	const int max_steps = static_cast<int>(nade_preview_time.get_value() / dt);
+	const float world_gravity = (pm->movevars && pm->movevars->gravity > 0.0f) ? pm->movevars->gravity : 800.0f;
+	const float max_velocity = pm->movevars ? pm->movevars->maxvelocity : 2000.0f;
+
+	result.points.reserve(max_steps);
+	result.landing = origin;
+
+	const int old_hull = pm->usehull;
+	int bounce_count = 0;
+
+	for (int step = 0; step < max_steps; ++step)
+	{
+		velocity.z -= ent_gravity * world_gravity * dt;
+
+		for (int i = 0; i < 3; ++i)
+		{
+			float v = velocity[i];
+			if (v > max_velocity) v = max_velocity;
+			else if (v < -max_velocity) v = -max_velocity;
+			velocity[i] = v;
+		}
+
+		Vector move = velocity * dt;
+		Vector end = origin + move;
+
+		pm->usehull = 2;
+		hl::pmtrace_t trace = pm->PM_PlayerTrace((float*)&origin, (float*)&end, PM_NORMAL, -1);
+		pm->usehull = old_hull;
+
+		if (trace.allsolid)
+		{
+			velocity = Vector(0.0f, 0.0f, 0.0f);
+			break;
+		}
+
+		origin = trace.endpos;
+		result.points.push_back(origin);
+
+		if (trace.fraction >= 1.0f)
+		{
+			continue;
+		}
+
+		Vector clipped;
+		grenade_clip_velocity(velocity, trace.plane.normal, clipped, overbounce);
+		velocity = clipped * nade_bounce.get_value();
+
+		if (++bounce_count >= 10)
+		{
+			velocity = Vector(0.0f, 0.0f, 0.0f);
+		}
+
+		if (trace.plane.normal.z > 0.7f)
+		{
+			if (velocity.z < world_gravity * dt)
+			{
+				velocity.z = 0.0f;
+			}
+			if (velocity.Length() < 30.0f)
+			{
+				velocity = Vector(0.0f, 0.0f, 0.0f);
+			}
+			else
+			{
+				const float scale = (1.0f - trace.fraction) * dt * 0.9f;
+				Vector push_end = origin + velocity * scale;
+				pm->usehull = 2;
+				hl::pmtrace_t push_trace = pm->PM_PlayerTrace((float*)&origin, (float*)&push_end, PM_NORMAL, -1);
+				pm->usehull = old_hull;
+				origin = push_trace.endpos;
+				result.points.push_back(origin);
+			}
+		}
+
+		if (velocity.IsZero())
+		{
+			break;
+		}
+	}
+
+	pm->usehull = old_hull;
+	result.landing = origin;
+	return result;
+}
+
+Vector CGrenadeHelper::solve_angles_for_landing(const Vector& target, int weapon_id) const
+{
+	auto local = CLocalState::the().local_player();
+	if (!local)
+	{
+		return Vector(0.0f, 0.0f, 0.0f);
+	}
+
+	const Vector eye = local->get_eye_pos();
+	const Vector velocity = CLocalState::the().get_local_velocity_vec();
+	const Vector delta = target - eye;
+	const float base_yaw = std::atan2(delta.y, delta.x) * (180.0f / std::numbers::pi_v<float>);
+
+	float best_pitch = 0.0f, best_yaw = base_yaw, best_error = FLT_MAX;
+
+	auto evaluate = [&](float pitch, float yaw)
+	{
+		auto sim = simulate(eye, Vector(pitch, yaw, 0.0f), velocity, weapon_id);
+		float error = (sim.landing - target).Length();
+		if (error < best_error)
+		{
+			best_error = error;
+			best_pitch = pitch;
+			best_yaw = yaw;
+		}
+	};
+
+	for (float pitch = -80.0f; pitch <= 80.0f; pitch += 8.0f)
+	{
+		for (float dyaw = -8.0f; dyaw <= 8.0f; dyaw += 4.0f)
+		{
+			evaluate(pitch, base_yaw + dyaw);
+		}
+	}
+
+	for (float pitch = best_pitch - 4.0f; pitch <= best_pitch + 4.0f; pitch += 1.0f)
+	{
+		for (float dyaw = -4.0f; dyaw <= 4.0f; dyaw += 1.0f)
+		{
+			evaluate(pitch, best_yaw + dyaw);
+		}
+	}
+
+	if (best_error > 512.0f)
+	{
+		return Vector(0.0f, 0.0f, 0.0f);
+	}
+	return Vector(best_pitch, best_yaw, 0.0f);
 }
 
 void CGrenadeHelper::on_render()
@@ -542,25 +712,22 @@ void CGrenadeHelper::on_render()
 	if (local && weapon && weapon->is_nade())
 	{
 		auto cl = CMemoryHookMgr::the().cl().get();
-		Vector forward, right, up;
-		CMath::the().angle_vectors(cl->viewangles, &forward, &right, &up);
-
-		Vector initial = CLocalState::the().get_local_velocity_vec() + forward * nade_throw_speed.get_value();
-		auto points = simulate(local->get_eye_pos(), initial);
-		draw_arc(points, trajectory_color, true);
+		auto sim = simulate(local->get_eye_pos(), cl->viewangles,
+						   CLocalState::the().get_local_velocity_vec(), weapon->m_weapon_id);
+		draw_arc(sim.points, trajectory_color, true);
 	}
 
 	// landing markers of all saved throws on this map
 	for (const auto& [name, t] : m_throws)
 	{
-		auto points = simulate(t.eye, t.velocity);
-		if (points.empty())
+		auto sim = simulate(t.eye, t.angles, t.velocity, t.weapon_id);
+		if (sim.points.empty())
 		{
 			continue;
 		}
 
 		Vector2D screen;
-		if (CGameUtil::the().world_to_screen(points.back(), screen))
+		if (CGameUtil::the().world_to_screen(t.landing.IsZero() ? sim.landing : t.landing, screen))
 		{
 			g_gui_window_rendering_i->render_circle(drawlist, screen, 4.0f, 12, saved_color, 1.5f);
 			auto font = g_gui_fontmgr_i->get_font(FID_SegoeUI, FSZ_13px);

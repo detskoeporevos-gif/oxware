@@ -317,6 +317,7 @@ enum EPlayerHull
 #include "features/Automation.h"
 #include "features/EnvironmentalEffects.h"
 #include "features/BackTrack.h"
+#include "features/GrenadeHelper.h"
 #include "features/Panic.h"
 #include "features/SIDSpoofer.h"
 #include "features/movement/BunnyHop.h"

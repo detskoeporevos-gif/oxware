@@ -31,12 +31,27 @@ The project is MSVC/Windows-only (`v143`, C++20). Build it in Visual Studio
 3. `Build > Rebuild Solution`.
 4. Output: `build\cheater.dll` + `build\oxware.exe`.
 
-The Linux sandbox used for this patch has no MSVC/`windows.h`, so a full
-binary build could not be produced here. What *was* verified in the sandbox:
+There is also a GitHub Actions workflow: `.github/workflows/build.yml`. It
+builds all static libraries in dependency order, then `cheater.vcxproj`, and
+uploads `build/**` as the `oxware-release-x86` artifact. Trigger it with a push
+to `arena/**` or via `workflow_dispatch`.
+
+The Linux sandbox used for this patch has no MSVC/`windows.h`, so the build
+was executed on a `windows-2022` GitHub runner instead. That CI run completed
+successfully; the `oxware-release-x86` artifact contains the built output.
+
+Additionally verified locally:
 
 - both modified `.vcxproj` files are valid XML and include the new files;
 - the standalone math harness for the steering/air-strafe formula compiled
   with `g++ -std=c++20` and passed all checks.
+
+CI required two compatibility fixes for current VS2022 toolchains:
+
+- PHNT's private structs that collide with modern Windows SDK headers are now
+  guarded by SDK-version checks;
+- all custom `std::formatter::format()` members are `const`, as required by
+  MSVC 17.14's `<format>`.
 
 ## Enable / disable
 

@@ -52,6 +52,13 @@ void CMovement::update_clientmove(float frametime, hl::usercmd_t *cmd)
 
 void CMovement::run_incommands(float frametime, hl::usercmd_t *cmd)
 {
+	// Fully autonomous bot takes ownership of the whole usercmd. Other movement
+	// features would fight it for buttons/forwardmove, so skip them entirely.
+	if (CMovementBot::the().update(frametime, cmd))
+	{
+		return;
+	}
+
 	if (bunnyhop.is_active())
 	{
 		CMovementBunnyHop::the().update(frametime);

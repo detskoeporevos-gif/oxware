@@ -124,7 +124,13 @@ bool CLocalState::is_on_ground()
 
 bool CLocalState::is_on_ground_safe()
 {
-	// HACKHACK
+	// pmove->onground is the prediction state for this exact frame, while
+	// clientdata.flags lags by one frame. Prefer it when available.
+	if (m_pmove && m_pmove->onground != -1)
+	{
+		return true;
+	}
+
 	return is_on_ground() || m_ground_dist < 0.1f;
 }
 

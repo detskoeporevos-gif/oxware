@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="src">
@@ -183,6 +183,9 @@
       <Filter>src\features\movement</Filter>
     </ClCompile>
     <ClCompile Include="features\movement\AutoJOF.cpp">
+      <Filter>src\features\movement</Filter>
+    </ClCompile>
+    <ClCompile Include="features\movement\MovementBot.cpp">
       <Filter>src\features\movement</Filter>
     </ClCompile>
     <ClCompile Include="hook\SecurityModuleHook.cpp">
@@ -520,6 +523,9 @@
       <Filter>src\features\movement</Filter>
     </ClInclude>
     <ClInclude Include="features\movement\AutoJOF.h">
+      <Filter>src\features\movement</Filter>
+    </ClInclude>
+    <ClInclude Include="features\movement\MovementBot.h">
       <Filter>src\features\movement</Filter>
     </ClInclude>
     <ClInclude Include="hook\SecurityModuleHook.h">

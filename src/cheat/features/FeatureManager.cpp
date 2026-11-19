@@ -115,6 +115,7 @@ void CFeatureManager::precache_features()
 	add_new_feature(BaseFeature(CMovement::strafe_helper.get_toggle_var(), "Strafe helper"));
 	add_new_feature(BaseFeature(CMovement::fastrun.get_toggle_var(), "Fast run"));
 	add_new_feature(BaseFeature(CMovement::auto_jof.get_toggle_var(), "Auto JOF"));
+	add_new_feature(BaseFeature(CMovementBot::toggle.get_toggle_var(), "Movement Bot"));
 	add_new_feature(BaseFeature(&movement_plot, "Movement visualization"));
 
 	// debug

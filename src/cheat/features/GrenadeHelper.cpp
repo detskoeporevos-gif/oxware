@@ -441,7 +441,9 @@ void CGrenadeHelper::on_calc_refdef(hl::ref_params_t* params)
 
 float CGrenadeHelper::engine_gravity() const
 {
-	auto pmove = CMemoryHookMgr::the().pmove().get();
+	// the pmove hook holds a playermove_t* pointer, so get() gives us playermove_t**.
+	auto pmove_ptr = CMemoryHookMgr::the().pmove().get();
+	auto pmove = pmove_ptr ? *pmove_ptr : nullptr;
 	float gravity = (pmove && pmove->movevars) ? pmove->movevars->gravity : 800.0f;
 	if (gravity <= 0.0f)
 	{

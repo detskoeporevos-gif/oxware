@@ -60,6 +60,7 @@ In the cheat console (`~`):
 
 ```cfg
 // persistent autonomous mode (created automatically for every InCommand)
+movement_bot_enable 1
 movement_bot_always_enabled 1
 
 // ...or bind a key in the game console / UI key binder to "movement_bot"
@@ -108,7 +109,7 @@ movement_bot_debug 0
 2. Inject with `oxware.exe`, open the menu with `INSERT`.
 3. Join a **local/offline server** first.
 4. Open the cheat console (`~`) and run:
-   `movement_bot_always_enabled 1`, `movement_bot_debug 1`.
+   `movement_bot_enable 1`, `movement_bot_always_enabled 1`, and `movement_bot_debug 1`.
 5. The player should start moving on its own, jumping on every grounded
    frame and steering smoothly in the air.
 6. Run `cl_showpos 1` to watch velocity. Enabling `movement_plot 1` shows the
@@ -119,7 +120,7 @@ movement_bot_debug 0
 ## Troubleshooting
 
 - **Bot does nothing**: it requires `connected + alive + not in chat`.
-  `movement_bot_always_enabled` must be `1`, or the bound key held.
+  `movement_bot_enable` must be `1`, and either `movement_bot_always_enabled` must be `1` or the bound key held. The Start bot button sets both variables.
 - **Spins in place**: increase `movement_bot_reach_dist`, decrease
   `movement_bot_roam_distance`, or record a short explicit route.
 - **Server corrects/warps you**: set `movement_bot_max_speed 250` and disable

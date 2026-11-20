@@ -257,9 +257,8 @@ strafe_jump_solution_t CStrafeJumpHelper::simulate_candidate(const Vector& start
 			float cross = vel.x * to_target.y - vel.y * to_target.x;
 			if (fabsf(cross) / speed2d > 0.02f)
 			{
-				// In HL the right vector is (-sin(yaw), cos(yaw)), so a
-				// positive cross means the target is to the player's right.
-				strafe_dir = cross > 0.0f ? 1 : -1;
+				// GoldSrc right is (sin(yaw), -cos(yaw)) at zero roll.
+				strafe_dir = cross > 0.0f ? -1 : 1;
 			}
 		}
 		last_dir = strafe_dir;
@@ -289,7 +288,7 @@ strafe_jump_solution_t CStrafeJumpHelper::simulate_candidate(const Vector& start
 			float addspeed = effective_wishspeed - currentspeed;
 			if (addspeed > 0.0f)
 			{
-				float accelspeed = (onground ? ground_accel : air_accel) * SIM_DT * effective_wishspeed;
+				float accelspeed = (onground ? ground_accel : air_accel) * SIM_DT * wishspeed * pm->friction;
 				if (accelspeed > addspeed) accelspeed = addspeed;
 				vel.x += wish.x * accelspeed;
 				vel.y += wish.y * accelspeed;

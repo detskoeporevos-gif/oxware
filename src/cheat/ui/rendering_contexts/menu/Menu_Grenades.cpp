@@ -69,10 +69,12 @@ void MenuChilden::Grenades::MovementBot::contents()
 	CUIMenuWidgets::the().add_checkbox("Always enabled", always);
 
 	if (g_gui_widgets_i->add_button(
-		CMovementBot::toggle.is_active() ? "Stop bot" : "Start bot",
+		always->get_value() && CMovementBot::toggle.get_toggle_var()->get_value() ? "Stop bot" : "Start bot",
 		{ -1.0f, 0.0f }, false, BUTTONFLAG_CenterLabel))
 	{
-		CMovementBot::toggle.set_is_active(!CMovementBot::toggle.is_active());
+		const bool start = !(always->get_value() && CMovementBot::toggle.get_toggle_var()->get_value());
+		CMovementBot::toggle.get_toggle_var()->set_value(start);
+		always->set_value(start);
 	}
 
 	g_gui_widgets_i->add_spacing();
@@ -104,10 +106,12 @@ void MenuChilden::Grenades::MovementBot::contents()
 
 	if (g_gui_widgets_i->add_button("Add waypoint", { -1.0f, 0.0f }, false, BUTTONFLAG_CenterLabel))
 	{
+		CMovementBot::add_waypoint.get_toggle_var()->set_value(true);
 		add_waypoint_pulse = 2;
 	}
 	if (g_gui_widgets_i->add_button("Clear route", { -1.0f, 0.0f }, false, BUTTONFLAG_CenterLabel))
 	{
+		CMovementBot::clear_route.get_toggle_var()->set_value(true);
 		clear_route_pulse = 2;
 	}
 }

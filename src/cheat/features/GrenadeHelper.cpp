@@ -535,7 +535,6 @@ grenade_simulation_t CGrenadeHelper::simulate(const Vector& eye, const Vector& v
 	result.landing = origin;
 
 	const int old_hull = pm->usehull;
-	int bounce_count = 0;
 
 	for (int step = 0; step < max_steps; ++step)
 	{
@@ -574,11 +573,6 @@ grenade_simulation_t CGrenadeHelper::simulate(const Vector& eye, const Vector& v
 		grenade_clip_velocity(velocity, trace.plane.normal, clipped, overbounce);
 		velocity = clipped * nade_bounce.get_value();
 
-		if (++bounce_count >= 10)
-		{
-			velocity = Vector(0.0f, 0.0f, 0.0f);
-		}
-
 		if (trace.plane.normal.z > 0.7f)
 		{
 			if (velocity.z < world_gravity * dt)
@@ -596,8 +590,17 @@ grenade_simulation_t CGrenadeHelper::simulate(const Vector& eye, const Vector& v
 				pm->usehull = 2;
 				hl::pmtrace_t push_trace = pm->PM_PlayerTrace((float*)&origin, (float*)&push_end, PM_NORMAL, -1);
 				pm->usehull = old_hull;
+				if (push_trace.allsolid)
+				{
+					break;
+				}
 				origin = push_trace.endpos;
 				result.points.push_back(origin);
+				if (push_trace.fraction < 1.0f)
+				{
+					grenade_clip_velocity(velocity, push_trace.plane.normal, clipped, overbounce);
+					velocity = clipped * nade_bounce.get_value();
+				}
 			}
 		}
 

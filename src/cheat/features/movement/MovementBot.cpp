@@ -218,7 +218,7 @@ void CMovementBot::drive_to(const Vector &origin, const Vector &target, hl::user
 
 	float rel = bot_wrap_pi(wish_yaw - target_yaw); // view yaw == target_yaw
 	cmd->forwardmove = max_speed * cosf(rel);
-	cmd->sidemove = max_speed * sinf(rel);
+	cmd->sidemove = -max_speed * sinf(rel);
 }
 
 //-----------------------------------------------------------------------------
@@ -235,10 +235,6 @@ bool CMovementBot::update(float frametime, hl::usercmd_t *cmd)
 
 	auto &local = CLocalState::the();
 	Vector origin = local.get_origin();
-	if (origin.IsZero())
-	{
-		return false;
-	}
 
 	if (!m_was_enabled)
 	{
@@ -255,6 +251,7 @@ bool CMovementBot::update(float frametime, hl::usercmd_t *cmd)
 		if (!m_route.empty())
 		{
 			m_route_index = (m_route_index + 1) % m_route.size();
+			m_roam_timer = 0.0f;
 		}
 		else
 		{
@@ -285,6 +282,7 @@ bool CMovementBot::update(float frametime, hl::usercmd_t *cmd)
 		else
 		{
 			m_route_index = (m_route_index + 1) % m_route.size();
+			m_roam_timer = 0.0f;
 		}
 
 		target = current_target(origin);

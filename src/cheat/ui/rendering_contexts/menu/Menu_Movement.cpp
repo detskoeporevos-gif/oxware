@@ -172,6 +172,44 @@ void MenuChilden::Movement::StrafeHelper::contents()
 	});
 }
 
+void MenuChilden::Movement::StrafeJumpHelper::contents()
+{
+	CUIMenuWidgets::the().feature_enabled_section_incommands(
+	&CStrafeJumpHelper::toggle,
+	[]()
+	{
+		CUIMenuWidgets::the().add_description_text(
+			"Look at the place you want to land and press the bind (or the button below). "
+			"The helper simulates the jump and draws the predicted strafe band.");
+
+		if (g_gui_widgets_i->add_button("Capture target from crosshair", { -1.0f, 0.0f }, false, BUTTONFLAG_CenterLabel))
+		{
+			CStrafeJumpHelper::the().capture_target();
+		}
+		if (g_gui_widgets_i->add_button("Clear target", { -1.0f, 0.0f }, false, BUTTONFLAG_CenterLabel))
+		{
+			CStrafeJumpHelper::the().clear_target();
+		}
+
+		g_gui_widgets_i->add_spacing();
+		g_gui_widgets_i->add_separtor_with_text("Prediction");
+		CUIMenuWidgets::the().add_checkbox("Draw band", &strafe_jump_show_path);
+		CUIMenuWidgets::the().add_checkbox("Show hint", &strafe_jump_show_hint);
+		CUIMenuWidgets::the().add_slider("Spot tolerance", "%0.0f u", &strafe_jump_tolerance);
+		CUIMenuWidgets::the().add_slider("Simulation time", "%0.1f s", &strafe_jump_sim_time);
+		CUIMenuWidgets::the().add_slider("Band length", "%0.1f s", &strafe_jump_preview_time);
+		CUIMenuWidgets::the().add_slider("Re-solve every", "%0.1f s", &strafe_jump_recalc_interval);
+		CUIMenuWidgets::the().add_slider("Jump impulse", "%0.0f", &strafe_jump_jump_velocity);
+
+		g_gui_widgets_i->add_spacing();
+		g_gui_widgets_i->add_separtor_with_text("Fallback");
+		CUIMenuWidgets::the().add_checkbox("Auto execute while bind held", &strafe_jump_auto_execute);
+		CUIMenuWidgets::the().add_description_text(
+			"Auto execute replaces your movement keys and view yaw with the simulated solution. "
+			"Release the bind at any time to take control back.");
+	}, "Enable / bind");
+}
+
 void MenuChilden::Movement::Bunnyhop::contents()
 {
 	CUIMenuWidgets::the().feature_enabled_section_incommands(

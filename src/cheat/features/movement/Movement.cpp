@@ -59,6 +59,14 @@ void CMovement::run_incommands(float frametime, hl::usercmd_t *cmd)
 		return;
 	}
 
+	// The strafe band helper may replay its simulated input. Run it first so
+	// that other movement features don't overwrite the chosen keys/yaw.
+	CStrafeJumpHelper::the().update_clientmove(frametime, cmd);
+	if (CStrafeJumpHelper::the().is_executing())
+	{
+		return;
+	}
+
 	if (bunnyhop.is_active())
 	{
 		CMovementBunnyHop::the().update(frametime);

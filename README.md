@@ -168,6 +168,7 @@ In order to fully build everything, all you need to do is just hit **ctrl + shif
 	- EB hack
 	- Strafe hack
 	- Strafe helper
+	- Jump strafe band helper (predicted landing + key replay)
 	- Fast run & fast walk
 	- Auto JOF
 	- Autonomous movement bot (free roam + waypoint routes)

@@ -128,6 +128,7 @@ void CUIMenu::on_initialize()
 				tab_movement_main.m_children.push_back(new MenuChilden::Movement::GroundStrafe({ "Ground strafe", 300, true }));
 				tab_movement_main.m_children.push_back(new MenuChilden::Movement::Strafehack({ "Strafe hack", 225, true }));
 				tab_movement_main.m_children.push_back(new MenuChilden::Movement::StrafeHelper({ "Strafe helper", 220, true }));
+				tab_movement_main.m_children.push_back(new MenuChilden::Movement::StrafeJumpHelper({ "🎯 Jump strafe helper", 340, true }));
 				tab_movement_main.m_children.push_back(new MenuChilden::Movement::Bunnyhop({ "🐇 Bunnyhop", 300, true }));
 				tab_movement_main.m_children.push_back(new MenuChilden::Movement::Edgebug({ "Edge bug", 270, true }));
 				tab_movement_main.m_children.push_back(new MenuChilden::Movement::Fastrun({ "🏃 Fast run", 200, true }));

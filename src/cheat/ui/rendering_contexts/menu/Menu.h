@@ -435,6 +435,7 @@ struct MenuChilden
 		DECL_CHILD(GroundStrafe);
 		DECL_CHILD(Strafehack);
 		DECL_CHILD(StrafeHelper);
+		DECL_CHILD(StrafeJumpHelper);
 		DECL_CHILD(Bunnyhop);
 		DECL_CHILD(Edgebug);
 		DECL_CHILD(Fastrun);

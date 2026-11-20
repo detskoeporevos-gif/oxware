@@ -220,6 +220,7 @@ void COxWareUI::initialize(HWND wnd)
 	CBulletTrace::the().initialize_gui();
 	CClientMovementPacketPlot::the().initialize_gui();
 	CGrenadeHelper::the().initialize_gui();
+	CStrafeJumpHelper::the().initialize_gui();
 
 	CConsole::the().info("Cheat UI fully initialized.");
 }

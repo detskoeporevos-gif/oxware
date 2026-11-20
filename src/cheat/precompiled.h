@@ -330,6 +330,7 @@ enum EPlayerHull
 #include "features/movement/AutoJOF.h"
 #include "features/movement/MovementVisualInfo.h"
 #include "features/movement/MovementBot.h"
+#include "features/movement/StrafeJumpHelper.h"
 #include "features/movement/Movement.h"
 
 // ui

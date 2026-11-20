@@ -227,6 +227,7 @@
     <ClCompile Include="features\movement\MovementVisualInfo.cpp" />
     <ClCompile Include="features\movement\StrafeHack.cpp" />
     <ClCompile Include="features\movement\StrafeHelper.cpp" />
+    <ClCompile Include="features\movement\StrafeJumpHelper.cpp" />
     <ClCompile Include="features\NonSteamFpsFixer.cpp" />
     <ClCompile Include="features\Panic.cpp" />
     <ClCompile Include="features\ResourceConsistencyBypass.cpp" />
@@ -357,6 +358,7 @@
     <ClInclude Include="features\movement\MovementVisualInfo.h" />
     <ClInclude Include="features\movement\StrafeHack.h" />
     <ClInclude Include="features\movement\StrafeHelper.h" />
+    <ClInclude Include="features\movement\StrafeJumpHelper.h" />
     <ClInclude Include="features\NonSteamFpsFixer.h" />
     <ClInclude Include="features\Panic.h" />
     <ClInclude Include="features\ResourceConsistencyBypass.h" />

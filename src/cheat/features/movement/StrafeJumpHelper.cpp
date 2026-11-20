@@ -126,12 +126,18 @@ bool CStrafeJumpHelper::capture_from_crosshair(Vector& out) const
 	}
 
 	Vector hit = tr->endpos;
-	// A strafe lands with the feet, so project the surface hit onto the ground.
-	int hull = CLocalState::the().get_current_hull_tracing();
-	float ground_z = ground_probe(hit + Vector(0.0f, 0.0f, 8.0f), hull);
-	if (ground_z >= 0.0f)
+	// If the crosshair is already on walkable ground, use that point as-is.
+	// Otherwise drop it to the ground only when the floor is reasonably close;
+	// projecting a wall hit hundreds of units down put the marker somewhere the
+	// player was never aiming.
+	if (tr->plane.normal.z < 0.6f)
 	{
-		hit.z = ground_z;
+		int hull = CLocalState::the().get_current_hull_tracing();
+		float ground_z = ground_probe(hit + Vector(0.0f, 0.0f, 8.0f), hull);
+		if (ground_z >= 0.0f && hit.z - ground_z <= 128.0f)
+		{
+			hit.z = ground_z;
+		}
 	}
 	out = hit;
 	return true;
@@ -149,6 +155,8 @@ void CStrafeJumpHelper::capture_target()
 	m_target = point;
 	m_has_target = true;
 	m_executing = false;
+	m_exec_finished = false;
+	m_exec_time = 0.0f;
 	recompute_solution();
 
 	CConsole::the().info("Jump strafe helper: target set to ({:.1f}, {:.1f}, {:.1f}) - {}.",
@@ -160,17 +168,18 @@ void CStrafeJumpHelper::clear_target()
 {
 	m_has_target = false;
 	m_executing = false;
+	m_exec_finished = false;
+	m_exec_time = 0.0f;
 	m_solution = strafe_jump_solution_t();
 }
 
 strafe_jump_solution_t CStrafeJumpHelper::simulate_candidate(const Vector& start, const Vector& velocity,
 															  const Vector& target, float launch_yaw,
-															  int strafe_dir, float turn_per_step) const
+															  float turn_rate) const
 {
 	strafe_jump_solution_t result;
 	result.valid = true;
 	result.launch_yaw = launch_yaw;
-	result.strafe_dir = strafe_dir;
 	result.start = start;
 	result.target = target;
 
@@ -185,6 +194,7 @@ strafe_jump_solution_t CStrafeJumpHelper::simulate_candidate(const Vector& start
 	const int max_steps = std::clamp(static_cast<int>(strafe_jump_sim_time.get_value() / SIM_DT), 20, 500);
 	const float tolerance = strafe_jump_tolerance.get_value();
 	const float jump_velocity = strafe_jump_jump_velocity.get_value();
+	const float target_yaw = yaw_to_degrees(start, target);
 
 	const float world_gravity = (pm->movevars && pm->movevars->gravity > 0.0f) ? pm->movevars->gravity : 800.0f;
 	const float player_gravity = pm->gravity > 0.0f ? pm->gravity : 1.0f;
@@ -202,8 +212,10 @@ strafe_jump_solution_t CStrafeJumpHelper::simulate_candidate(const Vector& start
 	Vector vel = velocity;
 	bool onground = (pm->onground != 0) || (pm->flags & FL_ONGROUND) != 0;
 	float yaw = launch_yaw;
+	float total_turn = 0.0f;
 	float best_error = 1e30f;
 	int frames = max_steps;
+	int last_dir = 0;
 
 	result.steps.reserve(max_steps);
 	result.path.reserve(max_steps / 3 + 1);
@@ -223,6 +235,39 @@ strafe_jump_solution_t CStrafeJumpHelper::simulate_candidate(const Vector& start
 				vel.y *= scale;
 			}
 		}
+
+		//
+		// Closed-loop steering: keep the launch yaw aimed at the target and
+		// strafe only to the side that actually rotates the velocity toward it.
+		// The old version used an open-loop constant turn for the whole flight,
+		// which spun the player around and produced the "useless movement".
+		//
+		Vector to_target = target - origin;
+		to_target.z = 0.0f;
+		float target_dist = to_target.Length2D();
+		if (target_dist > 0.01f)
+		{
+			to_target = to_target * (1.0f / target_dist);
+		}
+
+		int strafe_dir = 0;
+		float speed2d = sqrtf(vel.x * vel.x + vel.y * vel.y);
+		if (speed2d > 1.0f && target_dist > 0.01f)
+		{
+			float cross = vel.x * to_target.y - vel.y * to_target.x;
+			if (fabsf(cross) / speed2d > 0.02f)
+			{
+				// In HL the right vector is (-sin(yaw), cos(yaw)), so a
+				// positive cross means the target is to the player's right.
+				strafe_dir = cross > 0.0f ? 1 : -1;
+			}
+		}
+		last_dir = strafe_dir;
+
+		float yaw_error = wrap_yaw_deg(target_yaw - yaw);
+		float turn = std::clamp(yaw_error, -turn_rate, turn_rate);
+		yaw = wrap_yaw_deg(yaw + turn);
+		total_turn += fabsf(turn);
 
 		Vector forward, right;
 		CMath::the().angle_vectors(Vector(0.0f, yaw, 0.0f), &forward, &right, nullptr);
@@ -251,7 +296,8 @@ strafe_jump_solution_t CStrafeJumpHelper::simulate_candidate(const Vector& start
 			}
 		}
 
-		const bool jump_this_step = (step == 0);
+		// Only jump when we are actually standing on something.
+		const bool jump_this_step = (step == 0 && onground);
 		if (jump_this_step)
 		{
 			vel.z = jump_velocity;
@@ -354,26 +400,34 @@ strafe_jump_solution_t CStrafeJumpHelper::simulate_candidate(const Vector& start
 			break;
 		}
 
-		// Fell far below the target - no point in simulating further.
+		// Fell far below the target, or already landed and moving away.
 		if (origin.z < target.z - 512.0f)
 		{
 			frames = step + 1;
 			break;
 		}
-
-		yaw = wrap_yaw_deg(yaw + turn_per_step);
+		if (onground && step > 20 && planar > best_error + 96.0f)
+		{
+			frames = step + 1;
+			break;
+		}
 	}
 
-	if (result.error > best_error)
-	{
-		result.error = best_error;
-	}
+	result.error = best_error;
+	result.strafe_dir = last_dir;
 	if (result.time <= 0.0f)
 	{
 		result.time = frames * SIM_DT;
 	}
 
-	// Keep only the frames that were actually simulated.
+	// Prefer short, low-turn solutions. Unreachable ones are heavily penalized
+	// so auto-execution never drives the player with a random fallback.
+	result.score = best_error + total_turn * 0.02f + result.time * 0.05f;
+	if (!result.reachable)
+	{
+		result.score += 500.0f;
+	}
+
 	result.steps.resize(std::min(static_cast<size_t>(frames), result.steps.size()));
 	const size_t preview_steps = std::min(result.steps.size(),
 		static_cast<size_t>(std::clamp(static_cast<int>(strafe_jump_preview_time.get_value() / SIM_DT), 1, max_steps)));
@@ -404,36 +458,27 @@ void CStrafeJumpHelper::recompute_solution()
 	const float target_yaw = yaw_to_degrees(start, m_target);
 
 	strafe_jump_solution_t best;
-	const float yaw_offsets[] = { -45.0f, -28.0f, -14.0f, 0.0f, 14.0f, 28.0f, 45.0f };
-	const float turn_rates[] = { -1.2f, 1.2f };
+	const float yaw_offsets[] = { -25.0f, -12.0f, 0.0f, 12.0f, 25.0f };
+	const float turn_rates[] = { 0.0f, 1.5f, 3.0f };
 
 	for (float offset : yaw_offsets)
 	{
-		for (int dir : { -1, 1 })
+		for (float turn : turn_rates)
 		{
-			for (float turn : turn_rates)
+			auto test = simulate_candidate(start, velocity, m_target,
+										  wrap_yaw_deg(target_yaw + offset), turn);
+			if (!test.valid)
 			{
-				auto test = simulate_candidate(start, velocity, m_target,
-											  wrap_yaw_deg(target_yaw + offset), dir, turn * static_cast<float>(dir));
-				if (!test.valid)
-				{
-					continue;
-				}
+				continue;
+			}
 
-				if (!best.valid || test.error < best.error ||
-					(fabsf(test.error - best.error) < 0.5f && test.reachable && !best.reachable))
-				{
-					best = std::move(test);
-				}
+			// Reachable solutions always beat unreachable ones; score breaks
+			// ties by distance, time and how much the view had to turn.
+			if (!best.valid || test.score < best.score)
+			{
+				best = std::move(test);
 			}
 		}
-	}
-
-	// A plain forward jump is useful for close, straight-line targets.
-	auto straight = simulate_candidate(start, velocity, m_target, target_yaw, 0, 0.0f);
-	if (straight.valid && (!best.valid || straight.error < best.error))
-	{
-		best = std::move(straight);
 	}
 
 	best.yaw_delta = wrap_yaw_deg(best.launch_yaw - cl->viewangles[YAW]);
@@ -446,9 +491,18 @@ void CStrafeJumpHelper::update_clientmove(float frametime, hl::usercmd_t* cmd)
 	bool active = toggle.is_active();
 	if (active && !m_was_toggle_active)
 	{
+		m_exec_finished = false;
+		m_exec_time = 0.0f;
 		capture_target();
 	}
 	m_was_toggle_active = active;
+
+	if (!active)
+	{
+		m_executing = false;
+		m_exec_finished = false;
+		m_exec_time = 0.0f;
+	}
 
 	if (m_has_target && !m_executing)
 	{
@@ -460,7 +514,10 @@ void CStrafeJumpHelper::update_clientmove(float frametime, hl::usercmd_t* cmd)
 		}
 	}
 
-	if (active && strafe_jump_auto_execute.get_value())
+	// Never drive the player with a "maybe" trajectory. A red band is a hint,
+	// not a command.
+	if (active && strafe_jump_auto_execute.get_value() &&
+		!m_exec_finished && m_solution.valid && m_solution.reachable)
 	{
 		apply_auto_execution(cmd);
 	}
@@ -475,7 +532,7 @@ void CStrafeJumpHelper::apply_auto_execution(hl::usercmd_t* cmd)
 	if (!m_executing)
 	{
 		m_executing = true;
-		m_exec_start = std::chrono::steady_clock::now();
+		m_exec_time = 0.0f;
 	}
 
 	if (!m_solution.valid || m_solution.steps.empty())
@@ -483,8 +540,9 @@ void CStrafeJumpHelper::apply_auto_execution(hl::usercmd_t* cmd)
 		return;
 	}
 
-	float elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_exec_start).count();
-	size_t index = std::min(static_cast<size_t>(std::max(0.0f, elapsed) / SIM_DT),
+	// Advance by the actual command duration so fps changes don't desync the
+	// replay from the simulated frames.
+	size_t index = std::min(static_cast<size_t>(m_exec_time / SIM_DT),
 							m_solution.steps.size() - 1);
 	const auto& step = m_solution.steps[index];
 
@@ -503,9 +561,12 @@ void CStrafeJumpHelper::apply_auto_execution(hl::usercmd_t* cmd)
 		cmd->buttons &= ~IN_JUMP;
 	}
 
+	m_exec_time += std::clamp(static_cast<float>(cmd->msec) * 0.001f, 0.001f, 0.05f);
+
 	if (index >= m_solution.steps.size() - 1)
 	{
 		m_executing = false;
+		m_exec_finished = true;
 	}
 }
 

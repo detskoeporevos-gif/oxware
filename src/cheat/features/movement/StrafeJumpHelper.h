@@ -65,6 +65,7 @@ struct strafe_jump_solution_t
 {
 	bool valid = false;
 	bool reachable = false;
+	float score = 1e30f;
 	float error = 1e30f;
 	float time = 0.0f;
 	float launch_yaw = 0.0f;
@@ -103,16 +104,17 @@ private:
 	void recompute_solution();
 	strafe_jump_solution_t simulate_candidate(const Vector& start, const Vector& velocity,
 											  const Vector& target, float launch_yaw,
-											  int strafe_dir, float turn_per_step) const;
+											  float turn_rate) const;
 	void apply_auto_execution(hl::usercmd_t* cmd);
 
 	bool m_has_target = false;
 	bool m_was_toggle_active = false;
 	bool m_executing = false;
+	bool m_exec_finished = false;
+	float m_exec_time = 0.0f;
 	Vector m_target;
 	strafe_jump_solution_t m_solution;
 	std::chrono::steady_clock::time_point m_last_solve;
-	std::chrono::steady_clock::time_point m_exec_start;
 };
 
 #endif // STRAFE_JUMP_HELPER_H
